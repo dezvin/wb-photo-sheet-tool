@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WB Photo Sheet</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <div class="intro">
+          <p class="kicker">Wildberries gallery to AI-ready sheets</p>
+          <h1 id="page-title">Собрать фото карточки WB в листы</h1>
+          <p class="lead">
+            Вставьте артикул или ссылку на карточку. Страница возьмет крупные фото,
+            разложит их по 9 на лист и даст скачать готовые изображения.
+          </p>
+        </div>
+
+        <form id="sheet-form" class="control-panel">
+          <label for="card-input">Артикул или ссылка</label>
+          <div class="input-row">
+            <input
+              id="card-input"
+              name="card"
+              type="text"
+              autocomplete="off"
+              inputmode="url"
+              placeholder="604619360 или https://www.wildberries.ru/catalog/604619360/detail.aspx"
+              required
+            >
+            <button id="build-button" type="submit">Собрать</button>
+          </div>
+          <p class="hint">
+            Файлы не сохраняются автоматически. Скачивание начнется только по вашей кнопке.
+          </p>
+        </form>
+
+        <section class="status-panel" aria-live="polite">
+          <div id="status" class="status">Готово к сборке.</div>
+          <div class="meter" aria-hidden="true">
+            <div id="meter-fill" class="meter-fill"></div>
+          </div>
+        </section>
+
+        <section id="results" class="results" aria-label="Готовые листы"></section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
