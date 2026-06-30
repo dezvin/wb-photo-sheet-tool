@@ -104,15 +104,26 @@
 
   function collectUrls() {
     const map = new Map();
+    const domEntries = [];
 
-    document.querySelectorAll("img, source").forEach((node) => {
+    document.querySelectorAll("img, source").forEach((node, nodeIndex) => {
       [node.currentSrc, node.src, node.getAttribute("src"), node.getAttribute("data-src")]
         .filter(Boolean)
-        .forEach((url) => addUrl(map, url));
+        .forEach((url) => {
+          addUrl(map, url);
+          domEntries.push({ node, nodeIndex, url });
+        });
 
       const srcset = node.getAttribute("srcset") || "";
-      srcset.split(",").forEach((part) => addUrl(map, part.trim().split(/\s+/)[0] || ""));
+      srcset.split(",").forEach((part) => {
+        const url = part.trim().split(/\s+/)[0] || "";
+        addUrl(map, url);
+        domEntries.push({ node, nodeIndex, url });
+      });
     });
+
+    const galleryMap = selectLikelyGallery(domEntries);
+    if (galleryMap.size >= 3) return [...galleryMap.values()];
 
     try {
       performance.getEntriesByType("resource").forEach((entry) => addUrl(map, entry.name));
@@ -131,6 +142,63 @@
     });
 
     return [...map.values()];
+  }
+
+  function selectLikelyGallery(entries) {
+    const groups = new Map();
+
+    entries.forEach((entry) => {
+      const clean = normalizeEscapedUrl(entry.url || "").split(/[ "'<>)]/)[0];
+      if (!isOzonImage(clean)) return;
+      const key = keyFor(clean);
+      const node = entry.node;
+      const rect = node.getBoundingClientRect ? node.getBoundingClientRect() : { x: 0, y: 0, width: 0, height: 0 };
+      const nearest = node.closest ? node.closest("div[class], section[class], article[class]") : null;
+      const groupKey = nearest ? `${nearest.tagName}:${nearest.className}` : "ungrouped";
+      if (!groups.has(groupKey)) groups.set(groupKey, []);
+      groups.get(groupKey).push({
+        key,
+        url: clean,
+        nodeIndex: entry.nodeIndex,
+        alt: node.getAttribute ? (node.getAttribute("alt") || "") : "",
+        x: rect.x || 0,
+        y: rect.y || 0,
+        width: rect.width || node.width || 0,
+        height: rect.height || node.height || 0
+      });
+    });
+
+    const candidates = [...groups.values()]
+      .map((items) => {
+        const unique = new Map();
+        items.forEach((item) => {
+          if (!unique.has(item.key)) unique.set(item.key, item);
+        });
+        const values = [...unique.values()];
+        const avgX = values.reduce((sum, item) => sum + item.x, 0) / Math.max(1, values.length);
+        const avgW = values.reduce((sum, item) => sum + item.width, 0) / Math.max(1, values.length);
+        const emptyAltShare = values.filter((item) => !item.alt).length / Math.max(1, values.length);
+        const firstIndex = Math.min(...values.map((item) => item.nodeIndex));
+        const verticalSpread = Math.max(...values.map((item) => item.y)) - Math.min(...values.map((item) => item.y));
+        const score =
+          values.length * 10
+          + (emptyAltShare > 0.8 ? 20 : 0)
+          + (avgX < 220 ? 20 : 0)
+          + (avgW <= 130 ? 15 : 0)
+          + (verticalSpread > 250 ? 8 : 0)
+          - Math.max(0, firstIndex - 20);
+        return { values, score, firstIndex };
+      })
+      .filter((group) => group.values.length >= 3)
+      .sort((a, b) => b.score - a.score || a.firstIndex - b.firstIndex);
+
+    const map = new Map();
+    (candidates[0]?.values || [])
+      .sort((a, b) => a.nodeIndex - b.nodeIndex)
+      .forEach((item) => {
+        if (!map.has(item.key)) map.set(item.key, item.url);
+      });
+    return map;
   }
 
   function loadImageFromCandidates(candidates) {
