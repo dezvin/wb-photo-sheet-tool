@@ -109,6 +109,19 @@ input {
   outline: none;
 }
 
+textarea {
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 14px 15px;
+  background: #fffdf8;
+  color: var(--ink);
+  font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  outline: none;
+}
+
 input:focus {
   border-color: var(--focus);
   box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.16);
