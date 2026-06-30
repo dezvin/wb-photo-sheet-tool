@@ -178,19 +178,30 @@
         const avgX = values.reduce((sum, item) => sum + item.x, 0) / Math.max(1, values.length);
         const avgW = values.reduce((sum, item) => sum + item.width, 0) / Math.max(1, values.length);
         const emptyAltShare = values.filter((item) => !item.alt).length / Math.max(1, values.length);
+        const recommendationShare = values.filter((item) => /рекомендуем|похожие|покупают/i.test(item.alt)).length / Math.max(1, values.length);
         const firstIndex = Math.min(...values.map((item) => item.nodeIndex));
         const verticalSpread = Math.max(...values.map((item) => item.y)) - Math.min(...values.map((item) => item.y));
+        const looksLikeMainGallery =
+          values.length >= 3
+          && emptyAltShare > 0.75
+          && recommendationShare === 0
+          && avgX < 240
+          && avgW <= 160
+          && firstIndex <= 30
+          && verticalSpread > 120;
         const score =
-          values.length * 10
-          + (emptyAltShare > 0.8 ? 20 : 0)
-          + (avgX < 220 ? 20 : 0)
-          + (avgW <= 130 ? 15 : 0)
-          + (verticalSpread > 250 ? 8 : 0)
-          - Math.max(0, firstIndex - 20);
-        return { values, score, firstIndex };
+          (looksLikeMainGallery ? 1000 : 0)
+          + Math.min(values.length, 24) * 4
+          + (emptyAltShare > 0.8 ? 120 : 0)
+          + (recommendationShare > 0 ? -300 : 0)
+          + (avgX < 220 ? 120 : -80)
+          + (avgW <= 130 ? 80 : -40)
+          + (verticalSpread > 250 ? 25 : 0)
+          - Math.max(0, firstIndex - 20) * 8;
+        return { values, score, firstIndex, looksLikeMainGallery };
       })
       .filter((group) => group.values.length >= 3)
-      .sort((a, b) => b.score - a.score || a.firstIndex - b.firstIndex);
+      .sort((a, b) => Number(b.looksLikeMainGallery) - Number(a.looksLikeMainGallery) || b.score - a.score || a.firstIndex - b.firstIndex);
 
     const map = new Map();
     (candidates[0]?.values || [])
