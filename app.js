@@ -43,6 +43,9 @@
   });
 
   setupBookmarklet();
+  if (window.location.hash.toLowerCase() === "#ozon") {
+    selectPlatform("ozon");
+  }
   renderPreview([]);
 
   function selectPlatform(platform) {

@@ -3,50 +3,25 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ozon фото в листы</title>
+    <meta http-equiv="refresh" content="0; url=./#ozon">
+    <title>Переход к Ozon-разделу</title>
+    <link rel="canonical" href="./#ozon">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main class="app-shell">
-      <section class="tool-head" aria-labelledby="page-title">
-        <div>
-          <p class="kicker">Кнопка для открытой карточки Ozon</p>
-          <h1 id="page-title">Ozon фото в листы</h1>
-          <p class="lead">
-            Эта кнопка запускается прямо на странице товара. Она находит фото,
-            показывает их для проверки и собирает выбранное в JPG-листы 3×3.
-          </p>
-        </div>
-        <p class="head-note">Если фото нашлись неверно, снимите лишние галочки перед сборкой.</p>
-      </section>
-
-      <section class="tool-grid">
-        <section class="work-panel">
-          <div class="ozon-steps">
-            <p class="panel-title">Установка</p>
-            <ol class="steps">
-              <li>Перетащите кнопку на панель закладок браузера.</li>
-              <li>Откройте карточку Ozon и пролистайте галерею товара.</li>
-              <li>Нажмите эту закладку на странице товара.</li>
-            </ol>
-            <a id="bookmarklet-link" class="bookmarklet-button" href="#">Ozon фото в листы</a>
-          </div>
-        </section>
-
-        <section class="work-panel">
-          <details class="compact-details" open>
-            <summary>Если перетаскивание не работает</summary>
-            <label for="bookmarklet-code">Код закладки</label>
-            <textarea id="bookmarklet-code" readonly rows="8"></textarea>
-            <button id="copy-button" class="secondary-action" type="button">Скопировать код</button>
-            <p id="copy-status" class="hint">
-              Создайте обычную закладку и вставьте этот код в поле адреса.
-            </p>
-          </details>
-        </section>
+      <section class="work-panel">
+        <p class="kicker">Ozon теперь на главной странице</p>
+        <h1>Переходим к Ozon-разделу</h1>
+        <p class="lead">
+          Инструмент теперь собран на одной странице. Если переход не сработал,
+          откройте главную страницу и выберите Ozon.
+        </p>
+        <a class="download-link" href="./#ozon">Открыть Ozon-раздел</a>
       </section>
     </main>
-
-    <script src="ozon-bookmarklet-page.js"></script>
+    <script>
+      window.location.replace("./#ozon");
+    </script>
   </body>
 </html>
