@@ -3,49 +3,138 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>WB Photo Sheet</title>
+    <title>Фото товара в листы 3×3</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main class="app-shell">
-      <section class="workspace" aria-labelledby="page-title">
-        <div class="intro">
-          <p class="kicker">Wildberries gallery to AI-ready sheets</p>
-          <h1 id="page-title">Собрать фото карточки WB в листы</h1>
+      <section class="tool-head" aria-labelledby="page-title">
+        <div>
+          <p class="kicker">Листы 3×3 для проверки карточки</p>
+          <h1 id="page-title">Собрать фото товара в листы</h1>
           <p class="lead">
-            Вставьте артикул или ссылку на карточку. Страница возьмет крупные фото,
-            разложит их по 9 на лист и даст скачать готовые изображения.
+            Wildberries собирается прямо по ссылке или артикулу. Для Ozon фото
+            собираются из уже открытой карточки товара через кнопку-закладку.
           </p>
         </div>
+        <p class="head-note">JPG · до 9 фото на листе · без сохранения файлов на сайте</p>
+      </section>
 
-        <form id="sheet-form" class="control-panel">
-          <label for="card-input">Артикул или ссылка</label>
-          <div class="input-row">
-            <input
-              id="card-input"
-              name="card"
-              type="text"
-              autocomplete="off"
-              inputmode="url"
-              placeholder="604619360 или https://www.wildberries.ru/catalog/604619360/detail.aspx"
-              required
+      <section class="tool-grid" aria-label="Инструмент сборки листов">
+        <section class="work-panel">
+          <div class="platform-switch" role="tablist" aria-label="Выбор площадки">
+            <button
+              id="tab-wb"
+              class="platform-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="panel-wb"
+              data-platform="wb"
             >
-            <button id="build-button" type="submit">Собрать</button>
+              Wildberries
+            </button>
+            <button
+              id="tab-ozon"
+              class="platform-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-ozon"
+              data-platform="ozon"
+            >
+              Ozon
+            </button>
           </div>
-          <p class="hint">
-            Файлы не сохраняются автоматически. Скачивание начнется только по вашей кнопке.
-          </p>
-        </form>
 
-        <section class="status-panel" aria-live="polite">
-          <div id="status" class="status">Готово к сборке.</div>
-          <div class="meter" aria-hidden="true">
-            <div id="meter-fill" class="meter-fill"></div>
-          </div>
+          <section id="panel-wb" class="platform-panel is-active" role="tabpanel" aria-labelledby="tab-wb">
+            <form id="sheet-form" class="wb-form">
+              <label for="card-input">Ссылка или артикул Wildberries</label>
+              <div class="input-row">
+                <input
+                  id="card-input"
+                  name="card"
+                  type="text"
+                  autocomplete="off"
+                  inputmode="url"
+                  placeholder="604619360 или ссылка на карточку"
+                  required
+                >
+                <button id="build-button" class="primary-action" type="submit">Собрать листы</button>
+              </div>
+              <p class="hint">
+                Страница берёт крупные фото карточки и собирает JPG-листы. Скачивание начнётся
+                только после вашей кнопки.
+              </p>
+            </form>
+          </section>
+
+          <section id="panel-ozon" class="platform-panel" role="tabpanel" aria-labelledby="tab-ozon" hidden>
+            <div class="ozon-steps">
+              <p class="panel-title">Фото собираются прямо из открытой страницы товара.</p>
+              <ol class="steps">
+                <li>Перетащите кнопку на панель закладок браузера.</li>
+                <li>Откройте нужную карточку Ozon и пролистайте галерею товара.</li>
+                <li>Нажмите эту закладку на странице товара и соберите листы.</li>
+              </ol>
+              <a id="bookmarklet-link" class="bookmarklet-button" href="#">Ozon фото в листы</a>
+              <p id="bookmarklet-status" class="hint">
+                Если автоматический выбор ошибся, в окне Ozon можно снять лишние фото перед сборкой.
+              </p>
+              <details class="compact-details">
+                <summary>Если перетаскивание не работает</summary>
+                <label for="bookmarklet-code">Код закладки</label>
+                <textarea id="bookmarklet-code" readonly rows="5"></textarea>
+                <button id="copy-button" class="secondary-action" type="button">Скопировать код</button>
+                <p id="copy-status" class="hint">
+                  Создайте обычную закладку и вставьте этот код в поле адреса.
+                </p>
+              </details>
+            </div>
+          </section>
+
+          <section class="status-panel" aria-live="polite">
+            <div id="status" class="status">Готово к сборке.</div>
+            <div class="meter" aria-hidden="true">
+              <div id="meter-fill" class="meter-fill"></div>
+            </div>
+          </section>
         </section>
 
-        <section id="results" class="results" aria-label="Готовые листы"></section>
+        <aside class="preview-panel" aria-label="Превью будущего листа">
+          <div class="preview-copy">
+            <p class="preview-label">Будущий лист</p>
+            <p id="plan-summary" class="plan-summary">Здесь появятся первые фото и количество листов.</p>
+          </div>
+          <div id="sheet-preview" class="sheet-preview" aria-label="Сетка 3 на 3">
+            <div class="preview-cell" data-preview-cell>01</div>
+            <div class="preview-cell" data-preview-cell>02</div>
+            <div class="preview-cell" data-preview-cell>03</div>
+            <div class="preview-cell" data-preview-cell>04</div>
+            <div class="preview-cell" data-preview-cell>05</div>
+            <div class="preview-cell" data-preview-cell>06</div>
+            <div class="preview-cell" data-preview-cell>07</div>
+            <div class="preview-cell" data-preview-cell>08</div>
+            <div class="preview-cell" data-preview-cell>09</div>
+          </div>
+        </aside>
       </section>
+
+      <section id="results" class="results" aria-label="Готовые листы"></section>
+
+      <details class="help-panel">
+        <summary>Если не сработало</summary>
+        <div class="help-grid">
+          <p>
+            Для Wildberries проверьте, что в поле есть артикул или ссылка на карточку. Если товар
+            удалён или фото недоступны на публичных серверах, страница покажет понятную ошибку.
+          </p>
+          <p>
+            Для Ozon откройте карточку товара, пролистайте галерею и нажмите кнопку-закладку ещё раз.
+            Если фото всё равно не находятся, пришлите ссылку на карточку для проверки.
+          </p>
+        </div>
+      </details>
     </main>
 
     <script src="app.js"></script>

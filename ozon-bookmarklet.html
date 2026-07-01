@@ -3,35 +3,46 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ozon Bookmarklet</title>
+    <title>Ozon фото в листы</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main class="app-shell">
-      <section class="workspace">
-        <div class="intro">
-          <p class="kicker">Ozon gallery from an opened product page</p>
-          <h1>Кнопка для Ozon</h1>
+      <section class="tool-head" aria-labelledby="page-title">
+        <div>
+          <p class="kicker">Кнопка для открытой карточки Ozon</p>
+          <h1 id="page-title">Ozon фото в листы</h1>
           <p class="lead">
-            Эта кнопка работает не снаружи, а внутри уже открытой карточки Ozon.
-            Откройте товар, пролистайте галерею, нажмите закладку и скачайте листы.
+            Эта кнопка запускается прямо на странице товара. Она находит фото,
+            показывает их для проверки и собирает выбранное в JPG-листы 3×3.
           </p>
         </div>
+        <p class="head-note">Если фото нашлись неверно, снимите лишние галочки перед сборкой.</p>
+      </section>
 
-        <section class="control-panel">
-          <label>Установка</label>
-          <p class="hint">
-            Перетащите эту кнопку на панель закладок браузера. Если перетаскивание не работает,
-            скопируйте код ниже и создайте закладку вручную.
-          </p>
-          <a id="bookmarklet-link" class="download-link" href="#">Ozon фото в листы</a>
+      <section class="tool-grid">
+        <section class="work-panel">
+          <div class="ozon-steps">
+            <p class="panel-title">Установка</p>
+            <ol class="steps">
+              <li>Перетащите кнопку на панель закладок браузера.</li>
+              <li>Откройте карточку Ozon и пролистайте галерею товара.</li>
+              <li>Нажмите эту закладку на странице товара.</li>
+            </ol>
+            <a id="bookmarklet-link" class="bookmarklet-button" href="#">Ozon фото в листы</a>
+          </div>
         </section>
 
-        <section class="control-panel">
-          <label for="bookmarklet-code">Код закладки</label>
-          <textarea id="bookmarklet-code" readonly rows="8"></textarea>
-          <button id="copy-button" type="button">Скопировать код</button>
-          <p id="copy-status" class="hint">Откройте карточку Ozon, нажмите закладку, затем кнопку «Собрать листы».</p>
+        <section class="work-panel">
+          <details class="compact-details" open>
+            <summary>Если перетаскивание не работает</summary>
+            <label for="bookmarklet-code">Код закладки</label>
+            <textarea id="bookmarklet-code" readonly rows="8"></textarea>
+            <button id="copy-button" class="secondary-action" type="button">Скопировать код</button>
+            <p id="copy-status" class="hint">
+              Создайте обычную закладку и вставьте этот код в поле адреса.
+            </p>
+          </details>
         </section>
       </section>
     </main>

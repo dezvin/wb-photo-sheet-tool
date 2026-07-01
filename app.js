@@ -5,6 +5,18 @@
   const statusEl = document.querySelector("#status");
   const meterFill = document.querySelector("#meter-fill");
   const results = document.querySelector("#results");
+  const planSummary = document.querySelector("#plan-summary");
+  const previewCells = [...document.querySelectorAll("[data-preview-cell]")];
+  const tabs = [...document.querySelectorAll("[data-platform]")];
+  const panels = {
+    wb: document.querySelector("#panel-wb"),
+    ozon: document.querySelector("#panel-ozon")
+  };
+  const bookmarkletLink = document.querySelector("#bookmarklet-link");
+  const bookmarkletCode = document.querySelector("#bookmarklet-code");
+  const copyButton = document.querySelector("#copy-button");
+  const copyStatus = document.querySelector("#copy-status");
+  const bookmarkletStatus = document.querySelector("#bookmarklet-status");
 
   const BASKET_MIN = 1;
   const BASKET_MAX = 80;
@@ -19,11 +31,43 @@
   const MAX_BYTES = 2_500_000;
 
   let currentUrls = [];
+  let bookmarkletText = "";
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     await buildSheets();
   });
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => selectPlatform(tab.dataset.platform));
+  });
+
+  setupBookmarklet();
+  renderPreview([]);
+
+  function selectPlatform(platform) {
+    tabs.forEach((tab) => {
+      const active = tab.dataset.platform === platform;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", String(active));
+    });
+
+    Object.entries(panels).forEach(([key, panel]) => {
+      const active = key === platform;
+      panel.classList.toggle("is-active", active);
+      panel.hidden = !active;
+    });
+
+    if (platform === "ozon") {
+      setStatus("Для Ozon откройте карточку товара и нажмите кнопку-закладку на самой странице.");
+      setProgress(0, 0);
+      planSummary.textContent = "Ozon-листы появятся в окне, которое откроется поверх карточки товара.";
+    } else {
+      setStatus("Готово к сборке.");
+      setProgress(0, 0);
+      planSummary.textContent = "Здесь появятся первые фото и количество листов.";
+    }
+  }
 
   function setStatus(message, isError = false) {
     statusEl.textContent = message;
@@ -34,6 +78,64 @@
     const value = total > 0 ? Math.round((done / total) * 100) : 0;
     meterFill.style.width = `${Math.min(100, Math.max(0, value))}%`;
   }
+
+  function formatSheets(total) {
+    const chunks = [];
+    for (let remaining = total; remaining > 0; remaining -= PHOTOS_PER_SHEET) {
+      chunks.push(Math.min(PHOTOS_PER_SHEET, remaining));
+    }
+    return chunks.join(" + ");
+  }
+
+  function renderPreview(images) {
+    previewCells.forEach((cell, index) => {
+      cell.replaceChildren();
+      const image = images[index];
+      if (image) {
+        const thumbnail = document.createElement("img");
+        thumbnail.src = image.currentSrc || image.src;
+        thumbnail.alt = `Фото ${index + 1}`;
+        cell.append(thumbnail);
+      } else {
+        cell.textContent = String(index + 1).padStart(2, "0");
+      }
+    });
+  }
+
+  async function setupBookmarklet() {
+    if (!bookmarkletLink || !bookmarkletCode) return;
+
+    try {
+      const response = await fetch("ozon-bookmarklet-source.js", { cache: "no-store" });
+      if (!response.ok) throw new Error("source unavailable");
+      const source = await response.text();
+      bookmarkletText = `javascript:${encodeURIComponent(source.replace(/^\uFEFF/, ""))}`;
+      bookmarkletLink.href = bookmarkletText;
+      bookmarkletCode.value = bookmarkletText;
+      bookmarkletStatus.textContent = "Перетащите кнопку на панель закладок. Она запускается только на открытой карточке Ozon.";
+    } catch (_) {
+      bookmarkletStatus.textContent = "Не удалось подготовить кнопку Ozon. Обновите страницу и попробуйте ещё раз.";
+      bookmarkletStatus.classList.add("error");
+    }
+  }
+
+  copyButton?.addEventListener("click", async () => {
+    if (!bookmarkletText) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(bookmarkletText);
+      } else {
+        bookmarkletCode.focus();
+        bookmarkletCode.select();
+        document.execCommand("copy");
+      }
+      copyStatus.textContent = "Код скопирован. Создайте закладку и вставьте его в поле адреса.";
+    } catch (_) {
+      bookmarkletCode.focus();
+      bookmarkletCode.select();
+      copyStatus.textContent = "Код выделен. Скопируйте его вручную.";
+    }
+  });
 
   function parseNmId(value) {
     const trimmed = value.trim();
@@ -71,7 +173,7 @@
         continue;
       }
     }
-    throw new Error("Не удалось найти карточку на публичных серверах WB.");
+    throw new Error("Не получилось найти фото этой карточки WB. Проверьте артикул или ссылку.");
   }
 
   function loadImage(url) {
@@ -80,7 +182,7 @@
       image.crossOrigin = "anonymous";
       image.decoding = "async";
       image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error(`Не удалось загрузить ${url}`));
+      image.onerror = () => reject(new Error(`Не получилось загрузить одно из фото WB.`));
       image.src = url;
     });
   }
@@ -112,12 +214,12 @@
     canvas.height = height;
     const ctx = canvas.getContext("2d");
 
-    ctx.fillStyle = "#f7f5ef";
+    ctx.fillStyle = "#f5f6f3";
     ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "#151515";
+    ctx.fillStyle = "#20231f";
     ctx.font = "700 36px system-ui, sans-serif";
     ctx.fillText(`WB ${nmId} · лист ${sheetIndex + 1} из ${totalSheets}`, PAD, 46);
-    ctx.fillStyle = "#68665f";
+    ctx.fillStyle = "#62685f";
     ctx.font = "22px system-ui, sans-serif";
     ctx.fillText(`Фото ${startIndex + 1}-${startIndex + images.length}`, PAD, 76);
 
@@ -130,11 +232,11 @@
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(x, y, CELL_W, CELL_H);
       drawCover(ctx, image, x, y, CELL_W, CELL_H);
-      ctx.strokeStyle = "#d9d4ca";
+      ctx.strokeStyle = "#d8ddd2";
       ctx.lineWidth = 2;
       ctx.strokeRect(x, y, CELL_W, CELL_H);
 
-      ctx.fillStyle = "#151515";
+      ctx.fillStyle = "#20231f";
       ctx.font = "700 24px system-ui, sans-serif";
       ctx.fillText(String(startIndex + offset + 1).padStart(2, "0"), x, y + CELL_H + 26);
     });
@@ -142,7 +244,7 @@
     return canvasToBlob(canvas);
   }
 
-  function makeDownload(name, blob) {
+  function makeDownload(blob) {
     const url = URL.createObjectURL(blob);
     currentUrls.push(url);
     return url;
@@ -153,6 +255,8 @@
     currentUrls = [];
     results.replaceChildren();
     setProgress(0, 0);
+    renderPreview([]);
+    planSummary.textContent = "Здесь появятся первые фото и количество листов.";
   }
 
   function renderSheets(nmId, sheetEntries) {
@@ -160,7 +264,7 @@
 
     if (sheetEntries.length > 1) {
       const allButton = document.createElement("button");
-      allButton.className = "download-all";
+      allButton.className = "primary-action download-all";
       allButton.type = "button";
       allButton.textContent = "Скачать все листы";
       allButton.addEventListener("click", () => {
@@ -217,14 +321,17 @@
       setStatus(`Ищу карточку ${nmId} на серверах WB...`);
       const cardInfo = await discoverCard(nmId);
       const total = cardInfo.count;
+      const sheetCount = Math.ceil(total / PHOTOS_PER_SHEET);
       const urls = Array.from({ length: total }, (_, index) => pathsFor(nmId, cardInfo.basket, index + 1).image);
       const images = [];
 
+      planSummary.textContent = `Нашёл ${total} фото. Будет ${sheetCount} лист(а): ${formatSheets(total)}.`;
       setStatus(`Нашёл ${total} фото. Загружаю крупные изображения...`);
       for (let index = 0; index < urls.length; index += 1) {
         const image = await loadImage(urls[index]);
         images.push(image);
         setProgress(index + 1, total);
+        if (images.length <= PHOTOS_PER_SHEET) renderPreview(images);
         setStatus(`Загружено ${index + 1} из ${total} фото.`);
       }
 
@@ -245,7 +352,7 @@
           photoCount: sheetChunks[index].length,
           sizeMb: (blob.size / 1024 / 1024).toFixed(2),
           fileName,
-          url: makeDownload(fileName, blob)
+          url: makeDownload(blob)
         });
       }
 
@@ -253,7 +360,7 @@
       setProgress(1, 1);
       setStatus(`Готово: ${total} фото разложены на ${entries.length} лист(а).`);
     } catch (error) {
-      setStatus(error.message || "Сборка не удалась.", true);
+      setStatus(error.message || "Сборка не удалась. Проверьте ссылку и попробуйте ещё раз.", true);
     } finally {
       button.disabled = false;
       input.disabled = false;

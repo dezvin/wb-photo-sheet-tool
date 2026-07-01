@@ -14,7 +14,7 @@
   if (existing) existing.remove();
 
   const state = {
-    urls: [],
+    loaded: [],
     objectUrls: []
   };
 
@@ -35,7 +35,7 @@
 
   function setStatus(message, isError) {
     status.textContent = message;
-    status.style.color = isError ? "#a42317" : "#4e4a43";
+    status.style.color = isError ? "#9f2418" : "#62685f";
   }
 
   function cleanupObjectUrls() {
@@ -96,10 +96,11 @@
   }
 
   function addUrl(map, url) {
-    const clean = normalizeEscapedUrl(url).split(/[ "'<>)]/)[0];
-    if (!isOzonImage(clean)) return;
+    const clean = normalizeEscapedUrl(url || "").split(/[ "'<>)]/)[0];
+    if (!isOzonImage(clean)) return null;
     const key = keyFor(clean);
     if (!map.has(key)) map.set(key, clean);
+    return clean;
   }
 
   function collectUrls() {
@@ -110,20 +111,22 @@
       [node.currentSrc, node.src, node.getAttribute("src"), node.getAttribute("data-src")]
         .filter(Boolean)
         .forEach((url) => {
-          addUrl(map, url);
-          domEntries.push({ node, nodeIndex, url });
+          const clean = addUrl(map, url);
+          if (clean) domEntries.push({ node, nodeIndex, url: clean });
         });
 
       const srcset = node.getAttribute("srcset") || "";
       srcset.split(",").forEach((part) => {
         const url = part.trim().split(/\s+/)[0] || "";
-        addUrl(map, url);
-        domEntries.push({ node, nodeIndex, url });
+        const clean = addUrl(map, url);
+        if (clean) domEntries.push({ node, nodeIndex, url: clean });
       });
     });
 
     const galleryMap = selectLikelyGallery(domEntries);
-    if (galleryMap.size >= 3) return [...galleryMap.values()];
+    if (galleryMap.size >= 3) {
+      return { urls: [...galleryMap.values()], confident: true };
+    }
 
     try {
       performance.getEntriesByType("resource").forEach((entry) => addUrl(map, entry.name));
@@ -141,7 +144,7 @@
       matches.forEach((url) => addUrl(map, url));
     });
 
-    return [...map.values()];
+    return { urls: [...map.values()], confident: false };
   }
 
   function selectLikelyGallery(entries) {
@@ -230,7 +233,7 @@
             tryNext();
             return;
           }
-          resolve({ image, url });
+          resolve({ image, url, selected: true });
         };
         image.onerror = tryNext;
         image.src = url;
@@ -266,12 +269,12 @@
     canvas.height = height;
     const ctx = canvas.getContext("2d");
 
-    ctx.fillStyle = "#f7f5ef";
+    ctx.fillStyle = "#f5f6f3";
     ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = "#151515";
+    ctx.fillStyle = "#20231f";
     ctx.font = "700 36px system-ui, sans-serif";
     ctx.fillText(`Ozon · лист ${sheetIndex + 1} из ${totalSheets}`, PAD, 46);
-    ctx.fillStyle = "#68665f";
+    ctx.fillStyle = "#62685f";
     ctx.font = "22px system-ui, sans-serif";
     ctx.fillText(`Фото ${startIndex + 1}-${startIndex + images.length}`, PAD, 76);
 
@@ -283,10 +286,10 @@
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(x, y, CELL_W, CELL_H);
       drawCover(ctx, item.image, x, y, CELL_W, CELL_H);
-      ctx.strokeStyle = "#d9d4ca";
+      ctx.strokeStyle = "#d8ddd2";
       ctx.lineWidth = 2;
       ctx.strokeRect(x, y, CELL_W, CELL_H);
-      ctx.fillStyle = "#151515";
+      ctx.fillStyle = "#20231f";
       ctx.font = "700 24px system-ui, sans-serif";
       ctx.fillText(String(startIndex + offset + 1).padStart(2, "0"), x, y + CELL_H + 26);
     });
@@ -294,38 +297,98 @@
     return canvasToBlob(canvas);
   }
 
-  async function build() {
+  function renderSelection(items) {
+    selection.replaceChildren();
+    if (!items.length) return;
+
+    selection.append(el("div", {
+      style: "grid-column:1/-1;color:#20231f;font-weight:900;"
+    }, [text("Проверьте фото перед сборкой")]));
+
+    items.forEach((item, index) => {
+      const checkbox = el("input", {
+        type: "checkbox",
+        checked: "checked",
+        "data-photo-index": String(index),
+        style: "position:absolute;left:8px;top:8px;width:18px;height:18px;accent-color:#176b5b;"
+      });
+      checkbox.addEventListener("change", () => {
+        item.selected = checkbox.checked;
+      });
+      const label = el("label", {
+        style: "position:relative;display:grid;gap:6px;cursor:pointer;"
+      }, [
+        checkbox,
+        el("img", {
+          src: item.url,
+          alt: `Фото ${index + 1}`,
+          style: "width:100%;aspect-ratio:3/4;object-fit:cover;border:1px solid #d8ddd2;border-radius:6px;background:#fff;"
+        }),
+        el("span", {
+          style: "font:700 12px/1 ui-monospace,Consolas,monospace;color:#62685f;"
+        }, [text(String(index + 1).padStart(2, "0"))])
+      ]);
+      selection.append(label);
+    });
+  }
+
+  async function scan() {
     cleanupObjectUrls();
     results.replaceChildren();
-    const urls = collectUrls();
-    state.urls = urls;
-    if (!urls.length) {
-      setStatus("Не нашёл фото Ozon на странице. Откройте карточку товара и пролистайте галерею.", true);
+    selection.replaceChildren();
+    state.loaded = [];
+    findButton.disabled = true;
+    buildButton.disabled = true;
+
+    const found = collectUrls();
+    if (!found.urls.length) {
+      setStatus("Не получилось уверенно найти фото. Пролистайте галерею Ozon и нажмите «Найти фото» ещё раз. Если не помогло, пришлите ссылку на товар.", true);
+      findButton.disabled = false;
       return;
     }
 
-    setStatus(`Нашёл ${urls.length} возможных фото. Загружаю крупные версии...`);
-    buildButton.disabled = true;
-    const loaded = [];
-    for (let index = 0; index < urls.length; index += 1) {
+    setStatus(`Нашёл ${found.urls.length} возможных фото. Загружаю крупные версии...`);
+    for (let index = 0; index < found.urls.length; index += 1) {
       try {
-        const item = await loadImageFromCandidates(preferredCandidates(urls[index]));
-        loaded.push(item);
+        const item = await loadImageFromCandidates(preferredCandidates(found.urls[index]));
+        state.loaded.push(item);
       } catch (_) {
         // Skip unavailable or tiny images.
       }
-      setStatus(`Загружено ${loaded.length} фото из ${urls.length} найденных ссылок...`);
+      setStatus(`Загружено ${state.loaded.length} фото из ${found.urls.length} найденных ссылок...`);
     }
 
-    if (!loaded.length) {
-      setStatus("Ссылки нашлись, но браузер не смог загрузить крупные фото.", true);
-      buildButton.disabled = false;
+    findButton.disabled = false;
+
+    if (!state.loaded.length) {
+      setStatus("Ссылки нашлись, но браузер не смог загрузить крупные фото. Пролистайте карточку и попробуйте ещё раз.", true);
       return;
     }
 
+    renderSelection(state.loaded);
+    buildButton.disabled = false;
+    if (found.confident) {
+      setStatus(`Нашёл ${state.loaded.length} фото. Проверьте выбор и нажмите «Собрать выбранные».`);
+    } else {
+      setStatus(`Не получилось точно отделить галерею от остальных картинок. Оставьте галочки только на фото товара.`);
+    }
+  }
+
+  async function buildSelected() {
+    const selected = state.loaded.filter((item) => item.selected);
+    if (!selected.length) {
+      setStatus("Не выбрано ни одного фото. Оставьте галочки на нужных фото товара.", true);
+      return;
+    }
+
+    cleanupObjectUrls();
+    results.replaceChildren();
+    buildButton.disabled = true;
+    findButton.disabled = true;
+
     const chunks = [];
-    for (let index = 0; index < loaded.length; index += PHOTOS_PER_SHEET) {
-      chunks.push(loaded.slice(index, index + PHOTOS_PER_SHEET));
+    for (let index = 0; index < selected.length; index += PHOTOS_PER_SHEET) {
+      chunks.push(selected.slice(index, index + PHOTOS_PER_SHEET));
     }
 
     const links = [];
@@ -338,66 +401,77 @@
       const link = el("a", {
         href: url,
         download: name,
-        style: "display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border-radius:7px;background:#005bff;color:#fff;font-weight:800;text-decoration:none;"
+        style: "display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 14px;border-radius:7px;background:#176b5b;color:#fff;font-weight:900;text-decoration:none;"
       }, [text(`Скачать лист ${index + 1}`)]);
       links.push(link);
       results.append(el("div", {
-        style: "display:grid;gap:8px;padding:10px;border:1px solid #dedede;border-radius:8px;background:#fff;"
+        style: "display:grid;gap:8px;padding:10px;border:1px solid #d8ddd2;border-radius:8px;background:#fff;"
       }, [
-        el("div", { style: "display:flex;justify-content:space-between;gap:10px;align-items:center;" }, [
-          el("div", {}, [text(`Лист ${index + 1}: ${chunks[index].length} фото, ${(blob.size / 1024 / 1024).toFixed(2)} МБ`)]),
+        el("div", { style: "display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;" }, [
+          el("div", { style: "font-weight:800;" }, [text(`Лист ${index + 1}: ${chunks[index].length} фото, ${(blob.size / 1024 / 1024).toFixed(2)} МБ`)]),
           link
         ]),
-        el("img", { src: url, style: "width:100%;height:auto;border:1px solid #e4e4e4;border-radius:6px;" })
+        el("img", { src: url, style: "width:100%;height:auto;border:1px solid #d8ddd2;border-radius:6px;" })
       ]));
     }
 
     if (links.length > 1) {
       const all = el("button", {
         type: "button",
-        style: "min-height:42px;padding:0 14px;border:0;border-radius:7px;background:#111;color:#fff;font-weight:800;cursor:pointer;"
+        style: "min-height:42px;padding:0 14px;border:0;border-radius:7px;background:#20231f;color:#fff;font-weight:900;cursor:pointer;"
       }, [text("Скачать все")]);
       all.addEventListener("click", () => links.forEach((link, index) => setTimeout(() => link.click(), index * 250)));
       results.prepend(all);
     }
 
-    setStatus(`Готово: ${loaded.length} фото разложены на ${chunks.length} лист(а).`);
+    setStatus(`Готово: ${selected.length} фото разложены на ${chunks.length} лист(а).`);
     buildButton.disabled = false;
+    findButton.disabled = false;
   }
 
   const root = el("div", {
     id: APP_ID,
-    style: "position:fixed;inset:18px;z-index:2147483647;overflow:auto;padding:18px;border:1px solid #d5d5d5;border-radius:10px;background:#f6f5f0;color:#151515;font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 25px 100px rgba(0,0,0,.28);"
+    style: "position:fixed;inset:16px;z-index:2147483647;overflow:auto;padding:16px;border:1px solid #d8ddd2;border-radius:10px;background:#f5f6f3;color:#20231f;font:15px/1.45 Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 25px 100px rgba(0,0,0,.28);"
   });
-  const status = el("div", { style: "color:#4e4a43;" }, [text("Готово к сборке.")]);
+  const status = el("div", { style: "color:#62685f;" }, [text("Готово к поиску фото.")]);
+  const selection = el("div", {
+    style: "display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:14px;"
+  });
   const results = el("div", { style: "display:grid;gap:12px;margin-top:14px;" });
+  const findButton = el("button", {
+    type: "button",
+    style: "min-height:44px;padding:0 16px;border:0;border-radius:7px;background:#176b5b;color:#fff;font-weight:900;cursor:pointer;"
+  }, [text("Найти фото")]);
   const buildButton = el("button", {
     type: "button",
-    style: "min-height:44px;padding:0 16px;border:0;border-radius:7px;background:#005bff;color:#fff;font-weight:800;cursor:pointer;"
-  }, [text("Собрать листы")]);
+    disabled: "disabled",
+    style: "min-height:44px;padding:0 16px;border:0;border-radius:7px;background:#20231f;color:#fff;font-weight:900;cursor:pointer;"
+  }, [text("Собрать выбранные")]);
   const closeButton = el("button", {
     type: "button",
-    style: "min-height:44px;padding:0 16px;border:1px solid #cfcfcf;border-radius:7px;background:#fff;color:#151515;font-weight:800;cursor:pointer;"
+    style: "min-height:44px;padding:0 16px;border:1px solid #d8ddd2;border-radius:7px;background:#fff;color:#20231f;font-weight:900;cursor:pointer;"
   }, [text("Закрыть")]);
 
-  buildButton.addEventListener("click", build);
+  findButton.addEventListener("click", scan);
+  buildButton.addEventListener("click", buildSelected);
   closeButton.addEventListener("click", () => {
     cleanupObjectUrls();
     root.remove();
   });
 
   root.append(
-    el("div", { style: "display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;" }, [
-      el("div", {}, [
+    el("div", { style: "display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;flex-wrap:wrap;" }, [
+      el("div", { style: "min-width:min(100%,360px);" }, [
         el("div", { style: "font-size:22px;font-weight:900;margin-bottom:4px;" }, [text("Ozon фото в листы")]),
-        el("div", { style: "color:#5f5b55;" }, [text("Сначала пролистайте галерею товара, потом соберите листы по 9 фото.")])
+        el("div", { style: "color:#62685f;" }, [text("Сначала пролистайте галерею товара. Потом найдите фото, проверьте галочки и соберите листы 3×3.")])
       ]),
-      el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;" }, [buildButton, closeButton])
+      el("div", { style: "display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;" }, [findButton, buildButton, closeButton])
     ]),
     status,
+    selection,
     results
   );
 
   document.body.append(root);
-  setStatus("Нажмите «Собрать листы». Если фото мало, пролистайте галерею Ozon и запустите ещё раз.");
+  setStatus("Нажмите «Найти фото». Если фото мало, пролистайте галерею Ozon и нажмите ещё раз.");
 })();
